@@ -16,7 +16,6 @@ import copy
 
 
 _flatten = torch._C._jit_flatten
-_unflatten = torch._C._jit_unflatten
 
 
 def compile(arg=None, nderivs=1, optimize=True, enabled=True):
@@ -227,7 +226,7 @@ class TracedModule(Module):
         self.nderivs = nderivs
 
     def forward(self, *args):
-        in_vars, _, _ = _flatten((args, list(self.parameters())))
+        in_vars = _flatten((args, list(self.parameters())))
         return _get_trace(self.inner, args, in_vars, self.nderivs)
 
 
@@ -236,7 +235,7 @@ class TracedModule(Module):
 def _get_trace(f, args, in_vars, nderivs=0):
     trace = torch._C._tracer_enter(in_vars, nderivs)
     out = f(*args)
-    out_vars, _, _ = _flatten(out)
+    out_vars = _flatten(out)
     torch._C._tracer_exit(out_vars)
     return trace, out
 
@@ -338,7 +337,7 @@ def verify(model, args, loss_fn=torch.sum, devices=None):
     saved_state = copy.deepcopy(model.state_dict())
 
     def run_fwd_bwd(args, force_trace=False, assert_compiled=False):
-        in_vars, _, _ = _flatten((args, list(model.parameters())))
+        in_vars = _flatten((args, list(model.parameters())))
         # We use a special API to reset the trace and compile it from scratch.
         compiled_fn = model.compiled_fn
         if force_trace:
@@ -353,7 +352,7 @@ def verify(model, args, loss_fn=torch.sum, devices=None):
         if loss_fn == torch.sum and len(out) != 1:
             raise ValueError(("Model returns {} outputs, but default loss function "
                              "(torch.sum) can only handle a single output").format(len(out)))
-        out_vars, _, _ = _flatten(out)
+        out_vars = _flatten(out)
         saved_outs = [v.data.clone() for v in out_vars]
         loss = loss_fn(*out)
         grads = torch.autograd.grad([loss], in_vars)

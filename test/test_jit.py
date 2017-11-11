@@ -131,6 +131,41 @@ class TestJit(TestCase):
         torch._C._jit_pass_lint(trace)
         self.assertExpected(str(trace))
 
+    def test_arg_configurations(self):
+        """Different arg configurations should trigger different traces"""
+        x = Variable(torch.FloatTensor(4, 4).uniform_())
+        x_cuda = Variable(x.data.cuda())
+        x_double = Variable(x.data.double())
+        x_volatile = Variable(x.data.clone(), volatile=True)
+        x_grad = Variable(x.data.clone(), requires_grad=True)
+        y = Variable(torch.randn(4))
+
+        configurations = [
+            (x,),
+            (x_cuda,),
+            (x_double,),
+            (x_volatile,),
+            (x_grad,),
+            (y,),
+            ([x, x],),
+            ([x, y],),
+            ([x, x_cuda],),
+            ([x_cuda, x],),
+            ([[x_cuda, x]],),
+        ]
+
+        @torch.jit.compile(nderivs=0)
+        def fn(*args):
+            in_vars = torch._C._jit_flatten(args)
+            return in_vars[0] + 1
+
+        for i, config in enumerate(configurations):
+            self.assertFalse(fn.has_trace_for(*config))
+            fn(*config)
+            self.assertTrue(fn.has_trace_for(*config))
+            for unk_config in configurations[i + 1:]:
+                self.assertFalse(fn.has_trace_for(*unk_config))
+
     def test_cse(self):
         x = Variable(torch.Tensor([0.4, 0.3]), requires_grad=True)
         y = Variable(torch.Tensor([0.7, 0.5]), requires_grad=True)
