@@ -62,7 +62,7 @@ class Module(object):
 
         Should be overriden by all subclasses.
 
-        .. note::
+        .. warning::
             Although the recipe for forward pass needs to be defined within
             this function, one should call the :class:`Module` instance afterwards
             instead of this since the former takes care of running the
